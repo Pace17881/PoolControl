@@ -11,6 +11,8 @@
 #define relayMasterPin 12
 #define relayMotorPin 13
 
+
+
 // Setup a OneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -41,6 +43,7 @@ MQTTManager mqttManager;
 
 void measureDiffTemp(float poolTemperature, float solarTemperature);
 void manageRelay();
+void startDeepSleep();
 
 #define SENSORPOOL "pool"
 #define SENSORSOLAR "solar"
@@ -70,17 +73,10 @@ void setup(void)
     // Set the resolution of the sensors to 12 bits (0.0625°C)
     sensors.setResolution(poolSensorAddress, 12);
     sensors.setResolution(solarSensorAddress, 12);
-
-    wifiManager.connect();
-    mqttManager.setup();
-    
-
 }
 
 void loop(void)
 {
-    mqttManager.loop();
-
     // Request temperature readings from both sensors
     sensors.requestTemperaturesByAddress(poolSensorAddress);
     sensors.requestTemperaturesByAddress(solarSensorAddress);
@@ -89,30 +85,26 @@ void loop(void)
     float poolTemperature = sensors.getTempC(poolSensorAddress);
     float solarTemperature = sensors.getTempC(solarSensorAddress);
 
-    mqttManager.sendDiscoveryTemp(SENSORPOOL, poolTemperature);
-    mqttManager.sendDiscoveryTemp(SENSORSOLAR, solarTemperature);
-
-    //mqttManager.publishTemperature(SENSORPOOL, poolTemperature);
-    //mqttManager.publishTemperature(SENSORSOLAR, solarTemperature);
+    if (wifiManager.isConnected() && mqttManager.isConnected())
+    {
+        mqttManager.sendDiscoveryTemp(SENSORPOOL, poolTemperature);
+        mqttManager.sendDiscoveryTemp(SENSORSOLAR, solarTemperature);
+    }
 
     measureDiffTemp(poolTemperature, solarTemperature);
     manageRelay();
 
     delay(5000);
-    // Go into deep sleep mode for 60 seconds
-    //   Serial.println("Deep sleep mode for 60 seconds");
-    //   ESP.deepSleep(10e6);
+    //startDeepSleep();
+
 }
 
 void measureDiffTemp(float poolTemperature, float solarTemperature)
 {
 
     // Print the temperature readings
-    Serial.print("Pool Temperature: ");
-    Serial.print(poolTemperature);
-    Serial.print("°C, Solar Temperature: ");
-    Serial.print(solarTemperature);
-    Serial.println("°C");
+
+    Serial.printf("\nTemperatures pool: %.2f °C solar: %.2f °C\n\n", poolTemperature, solarTemperature);
 
     // Check the temperature difference and control the relay
     if (poolTemperature > minTemp && !solarOn && solarTemperature - poolTemperature > tempTreshold)
@@ -144,4 +136,10 @@ void manageRelay()
         digitalWrite(relayMasterPin, LOW); // Turn off the relay
         relayStartTime = 0;
     }
+}
+
+void startDeepSleep(){
+  Serial.println("Going to deep sleep...");
+  ESP.deepSleep(1 * 60 * 1e6);
+  yield();
 }

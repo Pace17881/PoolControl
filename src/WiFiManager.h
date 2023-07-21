@@ -1,20 +1,34 @@
 // WiFi credentials
-const char* ssid = "Internet";
-const char* password = "(/DDD)HD)988793hdHhd39hd987887";
+const char *ssid = "Internet";
+const char *password = "(/DDD)HD)988793hdHhd39hd987887";
 
-class WiFiManager {
+class WiFiManager
+{
 public:
-    void connect()
+    bool isConnected()
     {
-        WiFi.begin(ssid, password);
+        int retries = 0;
+        bool connected = true;
+        Serial.println("Checking Wifi connection...");
+        while (retries < 3 && !WiFi.isConnected())
+        {
+            Serial.println("WiFi not connected");
+            Serial.printf("Retry %d from 3\n", retries++);
+            Serial.println("Retrying in one second");
+            connected = false;
 
-        while (WiFi.status() != WL_CONNECTED) {
-            delay(500);
+            Serial.println("Attempting Wifi  connection...");
+            WiFi.begin(ssid, password);
+            delay(5000);
+
+            if (WiFi.isConnected())
+            {
+                Serial.println("");                Serial.println("WiFi connected");
+                Serial.println("IP address: " + WiFi.localIP().toString());
+                connected = true;
+            }
         }
 
-        Serial.println("");
-        Serial.println("WiFi connected");
-        Serial.print("IP address: ");
-        Serial.println(WiFi.localIP());
+        return connected;
     }
 };

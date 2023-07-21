@@ -8,6 +8,7 @@ const int mqttPort = 1883;
 const char *mqttUser = "your_mqtt_user";
 const char *mqttPassword = "your_mqtt_password";
 
+
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
@@ -18,32 +19,30 @@ void callback(char* topic, byte* payload, unsigned int length);
 class MQTTManager
 {
 public:
-    void setup()
+    bool isConnected()
     {
-        mqttClient.setServer(mqttServer, mqttPort);
-        // If your MQTT broker requires authentication, uncomment the following line and provide the credentials
-        // mqttClient.setCredentials(mqttUser, mqttPassword);
-        //mqttClient.setCallback(callback);
-    }
-
-    void reconnect()
-    {
-        while (!mqttClient.connected())
+        bool connected = false;
+        int retries = 0;
+        Serial.println("Checking MQTT connection...");
+        while (retries < 3 && !mqttClient.connected())
         {
-            Serial.print("Attempting MQTT connection...");
-            if (mqttClient.connect("ESP8266Client"))
+            Serial.println("Attempting MQTT connection...");
+            mqttClient.setServer(mqttServer, mqttPort);
+            if (mqttClient.connect("PoolController"))
             {
-                Serial.println("connected");
-                
+                Serial.println("Connection to mqtt server: " + String(mqttServer) + " established");
+                connected = true;
             }
             else
             {
-                Serial.print("failed, rc=");
-                Serial.print(mqttClient.state());
-                Serial.println(" retrying in 5 seconds");
-                delay(5000);
+                Serial.println("MQTT connection failed with state rc=: " + mqttClient.state());
+                Serial.println("Retries "+  retries++);
+                Serial.println("Retrying in one second");
+                connected = false;
+                delay(2000); 
             }
         }
+        return connected;
     }
 
     void sendDiscoveryTemp(String sensorId, float temperature)
@@ -109,19 +108,10 @@ public:
         Serial.print("Message arrived [");
         Serial.print(topic);
         Serial.print("] ");
-        for (int i = 0; i < length; i++)
+        for (unsigned int i = 0; i < length; i++)
         {
             Serial.print((char)payload[i]);
         }
         Serial.println();
-    }
-
-    void loop()
-    {
-        if (!mqttClient.connected())
-        {
-            reconnect();
-        }
-        mqttClient.loop();
     }
 };
