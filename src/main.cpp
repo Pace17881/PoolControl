@@ -8,8 +8,8 @@
 #define ONE_WIRE_BUS 2
 
 // Pins for the relays
-#define relayMasterPin 12
-#define relayMotorPin 13
+#define relayMasterPin 5
+#define relayMotorPin 4
 
 
 
