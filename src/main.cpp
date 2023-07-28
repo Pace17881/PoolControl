@@ -1,17 +1,15 @@
 #include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <MQTTManager.h>
-#include <WiFiManager.h>
+#include "MQTTManager.h"
+#include "WiFiManager.h"
 
-// Data wire is plugged into pin 2 on the Arduino
-#define ONE_WIRE_BUS 2
+// Pins for sensors
+#define ONE_WIRE_BUS 13
 
 // Pins for the relays
-#define relayMasterPin 5
-#define relayMotorPin 4
-
-
+#define relayMasterPin 4
+#define relayMotorPin 5
 
 // Setup a OneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
@@ -95,8 +93,10 @@ void loop(void)
     manageRelay();
 
     delay(5000);
-    //startDeepSleep();
-
+    if (!wasMoved)
+    {
+        // startDeepSleep();
+    }
 }
 
 void measureDiffTemp(float poolTemperature, float solarTemperature)
@@ -138,8 +138,9 @@ void manageRelay()
     }
 }
 
-void startDeepSleep(){
-  Serial.println("Going to deep sleep...");
-  ESP.deepSleep(1 * 60 * 1e6);
-  yield();
+void startDeepSleep()
+{
+    Serial.println("Going to deep sleep...");
+    ESP.deepSleep(1 * 60 * 1e6);
+    yield();
 }
