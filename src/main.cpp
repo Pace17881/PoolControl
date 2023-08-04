@@ -1,11 +1,12 @@
 #include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <SimpleTimer.h>
 #include "MQTTManager.h"
 #include "WiFiManager.h"
 
 // Pins for sensors
-#define ONE_WIRE_BUS 13
+#define ONE_WIRE_BUS 2 // 13
 
 // Pins for the relays
 #define relayMasterPin 4
@@ -23,6 +24,8 @@ DeviceAddress poolSensorAddress;
 // Address of the second DS18B20 sensor (Heat source)
 DeviceAddress solarSensorAddress;
 
+SimpleTimer timer;
+
 // Threshold for temperature difference
 const float tempTreshold = 2.0;
 
@@ -32,9 +35,9 @@ const float maxTemp = 60.0;
 unsigned long relayStartTime = 0;
 const unsigned long relayDuration = 20000; // 20 seconds
 
-bool wasMoved = false;
-bool solarOn = false;
-bool isBypassInitiated = false;
+bool masterSwitchOn = false;
+bool motorDirectionSwitch = false;
+bool cleanPosition = false;
 
 WiFiManager wifiManager;
 MQTTManager mqttManager;
@@ -42,6 +45,7 @@ MQTTManager mqttManager;
 void measureDiffTemp(float poolTemperature, float solarTemperature);
 void manageRelay();
 void startDeepSleep();
+void mainLogic();
 
 #define SENSORPOOL "pool"
 #define SENSORSOLAR "solar"
@@ -71,9 +75,26 @@ void setup(void)
     // Set the resolution of the sensors to 12 bits (0.0625°C)
     sensors.setResolution(poolSensorAddress, 12);
     sensors.setResolution(solarSensorAddress, 12);
+
+    timer.setInterval(5000, mainLogic);
 }
 
 void loop(void)
+{
+
+    timer.run();
+    yield();
+
+    // if (!masterSwitchOn)
+    // {
+    //     mqttManager.disconnect();
+    //     wifiManager.disconnect();
+    //     startDeepSleep();
+    // }
+    //delay(5000);
+}
+
+void mainLogic()
 {
     // Request temperature readings from both sensors
     sensors.requestTemperaturesByAddress(poolSensorAddress);
@@ -85,55 +106,66 @@ void loop(void)
 
     if (wifiManager.isConnected() && mqttManager.isConnected())
     {
-        mqttManager.sendDiscoveryTemp(SENSORPOOL, poolTemperature);
-        mqttManager.sendDiscoveryTemp(SENSORSOLAR, solarTemperature);
+        Serial.println("Send temperatures via mqtt");
+        mqttManager.sendDiscovery(SENSORPOOL, poolTemperature);
+        mqttManager.sendTemp(SENSORPOOL, poolTemperature);
+        mqttManager.sendDiscovery(SENSORSOLAR, solarTemperature);
+        mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
     }
 
     measureDiffTemp(poolTemperature, solarTemperature);
     manageRelay();
-
-    delay(5000);
-    if (!wasMoved)
-    {
-        // startDeepSleep();
-    }
 }
 
 void measureDiffTemp(float poolTemperature, float solarTemperature)
 {
 
     // Print the temperature readings
-
     Serial.printf("\nTemperatures pool: %.2f °C solar: %.2f °C\n\n", poolTemperature, solarTemperature);
 
     // Check the temperature difference and control the relay
-    if (poolTemperature > minTemp && !solarOn && solarTemperature - poolTemperature > tempTreshold)
+    if (poolTemperature > minTemp && poolTemperature < maxTemp)
     {
-        digitalWrite(relayMotorPin, HIGH); // Turn on the relay
-        solarOn = true;
-        wasMoved = false;
+        if (!motorDirectionSwitch && solarTemperature - poolTemperature > tempTreshold)
+        {
+            motorDirectionSwitch = true;
+            masterSwitchOn = true;
+        }
+        else if (motorDirectionSwitch && solarTemperature - poolTemperature < tempTreshold)
+        {
+            motorDirectionSwitch = false;
+            masterSwitchOn = true;
+        }
     }
-    else if (poolTemperature > minTemp && solarOn && solarTemperature - poolTemperature < tempTreshold)
+    else if (!cleanPosition)
     {
-        digitalWrite(relayMotorPin, LOW); // Turn off the relay
-        solarOn = false;
-        wasMoved = false;
+        cleanPosition = true;
+        motorDirectionSwitch = false;
+        masterSwitchOn = true;
     }
 }
 
 void manageRelay()
 {
-    if (!wasMoved)
+    if (masterSwitchOn && relayStartTime == 0)
     {
+        Serial.printf("\nDirection: %d\n", motorDirectionSwitch);
+        digitalWrite(relayMotorPin, motorDirectionSwitch);
+
+        Serial.printf("\nMaster: %d\n", masterSwitchOn);
+        digitalWrite(relayMasterPin, masterSwitchOn); // Turn on the relay
+
         relayStartTime = millis(); // Record the start time
-        wasMoved = true;
-        digitalWrite(relayMasterPin, HIGH); // Turn on the relay
     }
 
     // Check if the relay has been on for the specified duration
-    if (wasMoved && millis() - relayStartTime >= relayDuration)
+    if (masterSwitchOn && millis() - relayStartTime >= relayDuration)
     {
-        digitalWrite(relayMasterPin, LOW); // Turn off the relay
+        masterSwitchOn = false;
+
+        Serial.printf("\nMaster: %d\n", masterSwitchOn);
+        digitalWrite(relayMasterPin, masterSwitchOn); // Turn off the relay
+
         relayStartTime = 0;
     }
 }
@@ -141,6 +173,6 @@ void manageRelay()
 void startDeepSleep()
 {
     Serial.println("Going to deep sleep...");
-    ESP.deepSleep(1 * 60 * 1e6);
+    ESP.deepSleep(2 * 60 * 1e6);
     yield();
 }

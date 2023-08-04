@@ -14,7 +14,7 @@ const String baseSensorTopic = "homeassistant/sensor/PoolCtrl";
 
 bool MQTTManager::isConnected()
 {
-    bool connected = false;
+    bool connected = true;
     int retries = 0;
     Serial.println("Checking MQTT connection...");
     while (retries <= 3 && !mqttClient.connected())
@@ -38,7 +38,12 @@ bool MQTTManager::isConnected()
     return connected;
 }
 
-void MQTTManager::sendDiscoveryTemp(String sensorId, float temperature)
+void MQTTManager::disconnect()
+{
+    mqttClient.disconnect();
+}
+
+void MQTTManager::sendDiscovery(String sensorId, float temperature)
 {
     // This is the discovery topic for this specific sensor
     String stateTopic = baseSensorTopic + sensorId + "/state";
@@ -60,7 +65,7 @@ void MQTTManager::sendDiscoveryTemp(String sensorId, float temperature)
     mqttClient.publish(configTopic.c_str(), buffer, n);
 }
 
-void MQTTManager::publishTemperature(String sensorId, float temperature)
+void MQTTManager::sendTemp(String sensorId, float temperature)
 {
     String stateTopic = baseSensorTopic + sensorId + "/state";
     DynamicJsonDocument doc(1024);

@@ -33,3 +33,8 @@ bool WiFiManager::isConnected()
 
     return connected;
 }
+
+void WiFiManager::disconnect()
+{
+    WiFi.disconnect();
+}

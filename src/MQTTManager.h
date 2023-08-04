@@ -5,9 +5,10 @@ class MQTTManager
 {
 public:
     bool isConnected();
-    void sendDiscoveryTemp(String sensorId, float temperature);
-    void publishTemperature(String sensorId, float temperature);
+    void sendDiscovery(String sensorId, float temperature);
+    void sendTemp(String sensorId, float temperature);
     void callback(char *topic, byte *payload, unsigned int length);
+    void disconnect();
 };
 
 #endif // MQTT_MANAGER_H
