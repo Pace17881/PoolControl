@@ -12,6 +12,11 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 const String baseSensorTopic = "homeassistant/sensor/PoolCtrl";
 
+MQTTManager::MQTTManager()
+{
+    mqttClient.setCallback(callback);
+}
+
 bool MQTTManager::isConnected()
 {
     bool connected = true;
@@ -78,14 +83,16 @@ void MQTTManager::sendTemp(String sensorId, float temperature)
     mqttClient.publish(stateTopic.c_str(), buffer, n);
 }
 
-void MQTTManager::callback(char *topic, byte *payload, unsigned int length)
-{
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
-    for (unsigned int i = 0; i < length; i++)
-    {
-        Serial.print((char)payload[i]);
-    }
-    Serial.println();
-}
+void MQTTManager::callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Nachricht empfangen [");
+  Serial.print(topic);
+  Serial.print("] ");
+  
+  // Konvertiere die empfangene Nachricht in einen String
+  String message = "";
+  for (unsigned int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+  
+  Serial.println(message);
+}   

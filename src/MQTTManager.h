@@ -4,11 +4,15 @@
 class MQTTManager
 {
 public:
+    MQTTManager();
     bool isConnected();
     void sendDiscovery(String sensorId, float temperature);
     void sendTemp(String sensorId, float temperature);
-    void callback(char *topic, byte *payload, unsigned int length);
+    void setup();
     void disconnect();
+
+private:
+    static void callback(char *topic, byte *payload, unsigned int length);
 };
 
 #endif // MQTT_MANAGER_H

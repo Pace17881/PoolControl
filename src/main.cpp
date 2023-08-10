@@ -46,6 +46,7 @@ void measureDiffTemp(float poolTemperature, float solarTemperature);
 void manageRelay();
 void startDeepSleep();
 void mainLogic();
+void sendTempMqtt(float poolTemperature, float solarTemperature);
 
 #define SENSORPOOL "pool"
 #define SENSORSOLAR "solar"
@@ -53,45 +54,27 @@ void mainLogic();
 void setup(void)
 {
     Serial.begin(9600);
+
     sensors.begin(); // Start up the library
     pinMode(relayMasterPin, OUTPUT);
     pinMode(relayMotorPin, OUTPUT);
 
-    // Search for the addresses of the DS18B20 sensors
-    if (!sensors.getAddress(poolSensorAddress, 0))
+    while (!sensors.getAddress(poolSensorAddress, 0) || !sensors.getAddress(solarSensorAddress, 1))
     {
-        Serial.println("Unable to find address for Pool sensor.");
-        while (1)
-            ;
-    }
-
-    if (!sensors.getAddress(solarSensorAddress, 1))
-    {
-        Serial.println("Unable to find address for Heat source sensor.");
-        while (1)
-            ;
+        Serial.println("No temp sensor found");
     }
 
     // Set the resolution of the sensors to 12 bits (0.0625°C)
     sensors.setResolution(poolSensorAddress, 12);
     sensors.setResolution(solarSensorAddress, 12);
 
-    timer.setInterval(5000, mainLogic);
+    timer.setInterval(10000, mainLogic);
 }
 
 void loop(void)
 {
-
     timer.run();
     yield();
-
-    // if (!masterSwitchOn)
-    // {
-    //     mqttManager.disconnect();
-    //     wifiManager.disconnect();
-    //     startDeepSleep();
-    // }
-    //delay(5000);
 }
 
 void mainLogic()
@@ -104,6 +87,17 @@ void mainLogic()
     float poolTemperature = sensors.getTempC(poolSensorAddress);
     float solarTemperature = sensors.getTempC(solarSensorAddress);
 
+    poolTemperature = round(poolTemperature * 100) / 100;
+    solarTemperature = round(solarTemperature * 100) / 100;
+
+    sendTempMqtt(poolTemperature, solarTemperature);
+
+    measureDiffTemp(poolTemperature, solarTemperature);
+    manageRelay();
+}
+
+void sendTempMqtt(float poolTemperature, float solarTemperature)
+{
     if (wifiManager.isConnected() && mqttManager.isConnected())
     {
         Serial.println("Send temperatures via mqtt");
@@ -113,8 +107,8 @@ void mainLogic()
         mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
     }
 
-    measureDiffTemp(poolTemperature, solarTemperature);
-    manageRelay();
+    mqttManager.disconnect();
+    wifiManager.disconnect();
 }
 
 void measureDiffTemp(float poolTemperature, float solarTemperature)
