@@ -83,16 +83,18 @@ void MQTTManager::sendTemp(String sensorId, float temperature)
     mqttClient.publish(stateTopic.c_str(), buffer, n);
 }
 
-void MQTTManager::callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Nachricht empfangen [");
-  Serial.print(topic);
-  Serial.print("] ");
-  
-  // Konvertiere die empfangene Nachricht in einen String
-  String message = "";
-  for (unsigned int i = 0; i < length; i++) {
-    message += (char)payload[i];
-  }
-  
-  Serial.println(message);
-}   
+void MQTTManager::callback(char *topic, byte *payload, unsigned int length)
+{
+    Serial.print("Nachricht empfangen [");
+    Serial.print(topic);
+    Serial.print("] ");
+
+    // Konvertiere die empfangene Nachricht in einen String
+    String message = "";
+    for (unsigned int i = 0; i < length; i++)
+    {
+        message += (char)payload[i];
+    }
+
+    Serial.println(message);
+}
