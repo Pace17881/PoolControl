@@ -30,7 +30,7 @@ SimpleTimer timer;
 const float tempTreshold = 2.0;
 
 const float minTemp = 25.0;
-const float maxTemp = 60.0;
+const float maxTemp = 40.0;
 
 unsigned long relayStartTime = 0;
 const unsigned long relayDuration = 20000; // 20 seconds
@@ -118,7 +118,7 @@ void measureDiffTemp(float poolTemperature, float solarTemperature)
     Serial.printf("\nTemperatures pool: %.2f °C solar: %.2f °C\n\n", poolTemperature, solarTemperature);
 
     // Check the temperature difference and control the relay
-    if (poolTemperature > minTemp && poolTemperature < maxTemp)
+    if (solarTemperature > minTemp && poolTemperature < maxTemp)
     {
         if (!motorDirectionSwitch && solarTemperature - poolTemperature > tempTreshold)
         {
