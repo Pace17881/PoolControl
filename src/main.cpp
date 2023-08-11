@@ -6,7 +6,7 @@
 #include "WiFiManager.h"
 
 // Pins for sensors
-#define ONE_WIRE_BUS 2 // 13
+#define ONE_WIRE_BUS 13 // 2
 
 // Pins for the relays
 #define relayMasterPin 4
@@ -87,9 +87,6 @@ void mainLogic()
     float poolTemperature = sensors.getTempC(poolSensorAddress);
     float solarTemperature = sensors.getTempC(solarSensorAddress);
 
-    poolTemperature = round(poolTemperature * 100) / 100;
-    solarTemperature = round(solarTemperature * 100) / 100;
-
     sendTempMqtt(poolTemperature, solarTemperature);
 
     measureDiffTemp(poolTemperature, solarTemperature);
@@ -101,6 +98,7 @@ void sendTempMqtt(float poolTemperature, float solarTemperature)
     if (wifiManager.isConnected() && mqttManager.isConnected())
     {
         Serial.println("Send temperatures via mqtt");
+
         mqttManager.sendDiscovery(SENSORPOOL, poolTemperature);
         mqttManager.sendTemp(SENSORPOOL, poolTemperature);
         mqttManager.sendDiscovery(SENSORSOLAR, solarTemperature);

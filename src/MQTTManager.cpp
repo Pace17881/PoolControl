@@ -57,12 +57,15 @@ void MQTTManager::sendDiscovery(String sensorId, float temperature)
     DynamicJsonDocument doc(1024);
     char buffer[256];
 
+    char temp[10];
+    dtostrf(temperature, 5, 2, temp);
+
     doc["dev_cla"] = "temperature";
     doc["name"] = sensorId;
     doc["stat_t"] = stateTopic;
     doc["unit_of_meas"] = "°C";
     doc["frc_upd"] = true;
-    doc["temperature"] = temperature;
+    doc["temperature"] = temp;
     doc["val_tpl"] = "{{ value_json.temperature|default(0) }}";
 
     size_t n = serializeJson(doc, buffer);
@@ -76,7 +79,10 @@ void MQTTManager::sendTemp(String sensorId, float temperature)
     DynamicJsonDocument doc(1024);
     char buffer[256];
 
-    doc["temperature"] = temperature;
+    char temp[10];
+    dtostrf(temperature, 5, 2, temp);
+
+    doc["temperature"] = temp;
 
     size_t n = serializeJson(doc, buffer);
 
