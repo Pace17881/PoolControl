@@ -6,8 +6,10 @@ class MQTTManager
 public:
     MQTTManager();
     bool isConnected();
-    void sendDiscovery(String sensorId, float temperature);
-    void sendTemp(String sensorId, float temperature);
+    void sendTempDiscovery(String entity, float temperature);
+    void sendTemp(String entity, float temperature);
+    void sendMotorDiscovery(String entity);
+    void sendMotorDirection(String entity, bool motorDirectionSwitch);
     void setup();
     void disconnect();
 

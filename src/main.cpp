@@ -37,7 +37,6 @@ const unsigned long relayDuration = 20000; // 20 seconds
 
 bool masterSwitchOn = false;
 bool motorDirectionSwitch = false;
-bool cleanPosition = false;
 
 WiFiManager wifiManager;
 MQTTManager mqttManager;
@@ -46,10 +45,11 @@ void measureDiffTemp(float poolTemperature, float solarTemperature);
 void manageRelay();
 void startDeepSleep();
 void mainLogic();
-void sendTempMqtt(float poolTemperature, float solarTemperature);
+void sendMQTT(float poolTemperature, float solarTemperature);
 
 #define SENSORPOOL "pool"
 #define SENSORSOLAR "solar"
+#define MOTORDIRECTION "mode"
 
 void setup(void)
 {
@@ -62,6 +62,7 @@ void setup(void)
     while (!sensors.getAddress(poolSensorAddress, 0) || !sensors.getAddress(solarSensorAddress, 1))
     {
         Serial.println("No temp sensor found");
+        delay(5000);
     }
 
     // Set the resolution of the sensors to 12 bits (0.0625°C)
@@ -87,22 +88,26 @@ void mainLogic()
     float poolTemperature = sensors.getTempC(poolSensorAddress);
     float solarTemperature = sensors.getTempC(solarSensorAddress);
 
-    sendTempMqtt(poolTemperature, solarTemperature);
+    sendMQTT(poolTemperature, solarTemperature);
 
     measureDiffTemp(poolTemperature, solarTemperature);
     manageRelay();
 }
 
-void sendTempMqtt(float poolTemperature, float solarTemperature)
+void sendMQTT(float poolTemperature, float solarTemperature)
 {
     if (wifiManager.isConnected() && mqttManager.isConnected())
     {
-        Serial.println("Send temperatures via mqtt");
+        Serial.println("Send to mqtt");
 
-        mqttManager.sendDiscovery(SENSORPOOL, poolTemperature);
+        mqttManager.sendTempDiscovery(SENSORPOOL, poolTemperature);
         mqttManager.sendTemp(SENSORPOOL, poolTemperature);
-        mqttManager.sendDiscovery(SENSORSOLAR, solarTemperature);
+        mqttManager.sendTempDiscovery(SENSORSOLAR, solarTemperature);
         mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
+        mqttManager.sendMotorDiscovery(MOTORDIRECTION);
+        mqttManager.sendMotorDirection(MOTORDIRECTION, motorDirectionSwitch);
+
+
     }
 
     mqttManager.disconnect();
@@ -129,9 +134,8 @@ void measureDiffTemp(float poolTemperature, float solarTemperature)
             masterSwitchOn = true;
         }
     }
-    else if (!cleanPosition)
+    else if (motorDirectionSwitch)
     {
-        cleanPosition = true;
         motorDirectionSwitch = false;
         masterSwitchOn = true;
     }
