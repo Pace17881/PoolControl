@@ -5,38 +5,38 @@
 #include "MQTTManager.h"
 #include "WiFiManager.h"
 
-// Pins for sensors
-#define ONE_WIRE_BUS 13 // 2
+// PIN Definition
+#define ONE_WIRE_BUS 13 // Temp sensors
+#define relayMasterPin 4 // Master relay
+#define relayMotorPin 5 // Direction Relay
 
-// Pins for the relays
-#define relayMasterPin 4
-#define relayMotorPin 5
+// Definitions
+#define SENSORPOOL "pool"
+#define SENSORSOLAR "solar"
+#define MOTORDIRECTION "mode"
+#define AUTOMATIC "automatic"
 
-// Setup a OneWire instance to communicate with any OneWire devices
+// Temp Sensors
 OneWire oneWire(ONE_WIRE_BUS);
-
-// Pass OneWire reference to Dallas Temperature
 DallasTemperature sensors(&oneWire);
-
-// Address of the first DS18B20 sensor (Pool)
 DeviceAddress poolSensorAddress;
-
-// Address of the second DS18B20 sensor (Heat source)
 DeviceAddress solarSensorAddress;
 
-SimpleTimer timer;
-
-// Threshold for temperature difference
+// Thresholds
 const float tempTreshold = 2.0;
-
-const float minTemp = 25.0;
+const float minTemp = 24.0;
 const float maxTemp = 40.0;
 
+// Timers
 unsigned long relayStartTime = 0;
 const unsigned long relayDuration = 20000; // 20 seconds
+unsigned long previousMillis = 0;
+const long interval = 10000;
 
 bool masterSwitchOn = false;
 bool motorDirectionSwitch = false;
+bool initalRun = true;
+bool automatic = false;
 
 WiFiManager wifiManager;
 MQTTManager mqttManager;
@@ -46,10 +46,6 @@ void manageRelay();
 void startDeepSleep();
 void mainLogic();
 void sendMQTT(float poolTemperature, float solarTemperature);
-
-#define SENSORPOOL "pool"
-#define SENSORSOLAR "solar"
-#define MOTORDIRECTION "mode"
 
 void setup(void)
 {
@@ -69,13 +65,33 @@ void setup(void)
     sensors.setResolution(poolSensorAddress, 12);
     sensors.setResolution(solarSensorAddress, 12);
 
-    timer.setInterval(10000, mainLogic);
+    // mainLogicTimer.setInterval(10000, mainLogic);
+    mqttManager.setup();
 }
 
 void loop(void)
 {
-    timer.run();
-    yield();
+    mqttManager.loop();
+    mqttManager.subscribe();
+    automatic = mqttManager.getAutomaticState();
+
+    if (initalRun)
+    {
+        Serial.printf("\nInitial: motorDirectionSwitch: %d\n", motorDirectionSwitch);
+        motorDirectionSwitch = false;
+        masterSwitchOn = true;
+        initalRun = false;
+        manageRelay();
+    }
+
+    unsigned long currentMillis = millis(); // Aktuelle Zeit abrufen
+
+    // Überprüfen, ob das Intervall vergangen ist
+    if (currentMillis - previousMillis >= interval)
+    {
+        previousMillis = currentMillis; // Zeitpunkt für die nächste LED-Statusänderung aktualisieren
+        mainLogic();
+    }
 }
 
 void mainLogic()
@@ -88,9 +104,14 @@ void mainLogic()
     float poolTemperature = sensors.getTempC(poolSensorAddress);
     float solarTemperature = sensors.getTempC(solarSensorAddress);
 
+    // Print the temperature readings
+    Serial.printf("\nTemperatures pool: %.2f °C solar: %.2f °C\n\n", poolTemperature, solarTemperature);
     sendMQTT(poolTemperature, solarTemperature);
 
-    measureDiffTemp(poolTemperature, solarTemperature);
+    if (!masterSwitchOn)
+    {
+        measureDiffTemp(poolTemperature, solarTemperature);
+    }
     manageRelay();
 }
 
@@ -98,30 +119,19 @@ void sendMQTT(float poolTemperature, float solarTemperature)
 {
     if (wifiManager.isConnected() && mqttManager.isConnected())
     {
-        Serial.println("Send to mqtt");
-
         mqttManager.sendTempDiscovery(SENSORPOOL, poolTemperature);
         mqttManager.sendTemp(SENSORPOOL, poolTemperature);
         mqttManager.sendTempDiscovery(SENSORSOLAR, solarTemperature);
         mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
         mqttManager.sendMotorDiscovery(MOTORDIRECTION);
         mqttManager.sendMotorDirection(MOTORDIRECTION, motorDirectionSwitch);
-
-
     }
-
-    mqttManager.disconnect();
-    wifiManager.disconnect();
 }
 
 void measureDiffTemp(float poolTemperature, float solarTemperature)
 {
-
-    // Print the temperature readings
-    Serial.printf("\nTemperatures pool: %.2f °C solar: %.2f °C\n\n", poolTemperature, solarTemperature);
-
     // Check the temperature difference and control the relay
-    if (solarTemperature > minTemp && poolTemperature < maxTemp)
+    if (solarTemperature >= minTemp && poolTemperature <= maxTemp)
     {
         if (!motorDirectionSwitch && solarTemperature - poolTemperature > tempTreshold)
         {
@@ -134,41 +144,33 @@ void measureDiffTemp(float poolTemperature, float solarTemperature)
             masterSwitchOn = true;
         }
     }
-    else if (motorDirectionSwitch)
-    {
-        motorDirectionSwitch = false;
-        masterSwitchOn = true;
-    }
 }
 
 void manageRelay()
 {
     if (masterSwitchOn && relayStartTime == 0)
     {
-        Serial.printf("\nDirection: %d\n", motorDirectionSwitch);
         digitalWrite(relayMotorPin, motorDirectionSwitch);
-
-        Serial.printf("\nMaster: %d\n", masterSwitchOn);
         digitalWrite(relayMasterPin, masterSwitchOn); // Turn on the relay
 
         relayStartTime = millis(); // Record the start time
+        
+        if (automatic)
+        {
+            mqttManager.switchOutlet("Pool", "1");
+        }
     }
 
     // Check if the relay has been on for the specified duration
     if (masterSwitchOn && millis() - relayStartTime >= relayDuration)
     {
         masterSwitchOn = false;
-
-        Serial.printf("\nMaster: %d\n", masterSwitchOn);
         digitalWrite(relayMasterPin, masterSwitchOn); // Turn off the relay
 
         relayStartTime = 0;
+        if (automatic)
+        {
+            mqttManager.switchOutlet("Pool", "0");
+        }
     }
-}
-
-void startDeepSleep()
-{
-    Serial.println("Going to deep sleep...");
-    ESP.deepSleep(2 * 60 * 1e6);
-    yield();
 }
