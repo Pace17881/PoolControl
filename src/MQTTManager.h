@@ -6,7 +6,6 @@ class MQTTManager
 private:
     bool automatic;
 public:
-    bool isConnected();
     void sendTempDiscovery(String entity, float temperature);
     void sendTemp(String entity, float temperature);
     void sendMotorDiscovery(String entity);
@@ -19,6 +18,7 @@ public:
     void switchOutlet(String topic, const char* state);
     void subscribe();
     bool getAutomaticState();
+    bool connect();
 };
 
 #endif // MQTT_MANAGER_H

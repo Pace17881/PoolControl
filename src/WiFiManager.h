@@ -3,6 +3,8 @@
 
 class WiFiManager
 {
+private:
+    bool connected;
 public:
     bool isConnected();
     void disconnect();

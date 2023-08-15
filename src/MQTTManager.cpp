@@ -11,10 +11,10 @@ const char *mqttUser = "your_mqtt_user";
 const char *mqttPassword = "your_mqtt_password";
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-//const String baseSensorTopic = "homeassistant/sensor/poolmcu_debug/";
-//const String baseSwitchTopic = "homeassistant/switch/poolmcu_debug/";
-const String baseSensorTopic = "homeassistant/sensor/poolmcu/";
-const String baseSwitchTopic = "homeassistant/switch/poolmcu/";
+const String baseSensorTopic = "homeassistant/sensor/poolmcu_debug/";
+const String baseSwitchTopic = "homeassistant/switch/poolmcu_debug/";
+//const String baseSensorTopic = "homeassistant/sensor/poolmcu/";
+//const String baseSwitchTopic = "homeassistant/switch/poolmcu/";
 
 bool automatic = false;
 
@@ -28,31 +28,25 @@ bool MQTTManager::getAutomaticState()
     return automatic;
 }
 
-bool MQTTManager::isConnected()
+bool MQTTManager::connect()
 {
-    bool connected = true;
-    int retries = 0;
-    Serial.println("Checking MQTT connection...");
-    while (retries <= 3 && !mqttClient.connected())
+    if (!mqttClient.connected())
     {
-        Serial.println("Attempting MQTT connection...");
+        Serial.println("Connecting to MQTT server...");
         mqttClient.setServer(mqttServer, mqttPort);
         if (mqttClient.connect("PoolController"))
         {
-            Serial.println("Connection to mqtt server: " + String(mqttServer) + " established");
-            connected = true;
-            Serial.printf("\nCurrent Automatic Mode: %d\n", automatic);
+            Serial.println("Connected to MQTT server");
+            mqttClient.subscribe("poolAutomaticMode");
+            return true;
         }
         else
         {
-            Serial.println("MQTT connection failed with state rc=: " + mqttClient.state());
-            Serial.println("Retries " + retries++);
-            Serial.println("Retrying in one second");
-            connected = false;
-            delay(2000);
+            Serial.println("Failed to connect to MQTT server");
+            return false;
         }
     }
-    return connected;
+    return true;
 }
 
 void MQTTManager::disconnect()
