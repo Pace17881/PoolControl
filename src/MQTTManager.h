@@ -1,11 +1,13 @@
 #ifndef MQTT_MANAGER_H
 #define MQTT_MANAGER_H
+#include <ArduinoJson.h>
 
 class MQTTManager
 {
 private:
     bool automatic;
 public:
+    void sendDataToTopic(String &topic, DynamicJsonDocument &data);
     void sendTempDiscovery(String entity, float temperature);
     void sendTemp(String entity, float temperature);
     void sendMotorDiscovery(String entity);
@@ -15,7 +17,7 @@ public:
     void setup();
     void loop();
     void disconnect();
-    void switchOutlet(String topic, const char* state);
+    void switchOutlet(String entity, const char* state);
     void subscribe();
     bool getAutomaticState();
     bool connect();

@@ -72,14 +72,6 @@ void setup(void)
 void loop(void)
 {
     
-    if (wifiManager.isConnected())
-    {
-        if (mqttManager.connect())
-        {
-            mqttManager.loop(); // Handle MQTT communication
-            automaticMode = mqttManager.getAutomaticState();
-        }
-    }
 
     if (initalRun)
     {
@@ -112,14 +104,23 @@ void loop(void)
         manageRelay();
         sendMQTT(poolTemperature, solarTemperature);
     }
+    
+    if (wifiManager.isConnected())
+    {
+        if (mqttManager.connect())
+        {
+            mqttManager.loop(); // Handle MQTT communication
+            automaticMode = mqttManager.getAutomaticState();
+        }
+    }
 }
 
 void sendMQTT(float poolTemperature, float solarTemperature)
 {
     mqttManager.sendTempDiscovery(SENSORPOOL, poolTemperature);
-    mqttManager.sendTemp(SENSORPOOL, poolTemperature);
+    //mqttManager.sendTemp(SENSORPOOL, poolTemperature);
     mqttManager.sendTempDiscovery(SENSORSOLAR, solarTemperature);
-    mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
+    //mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
     mqttManager.sendMotorDiscovery(MOTORDIRECTION);
     mqttManager.sendMotorDirection(MOTORDIRECTION, motorDirectionSwitch);
 }
