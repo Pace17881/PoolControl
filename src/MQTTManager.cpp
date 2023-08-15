@@ -11,8 +11,10 @@ const char *mqttUser = "your_mqtt_user";
 const char *mqttPassword = "your_mqtt_password";
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-const String baseSensorTopic = "homeassistant/sensor/poolmcu_debug/";
-const String baseSwitchTopic = "homeassistant/switch/poolmcu_debug/";
+
+// The String must not longer than the below ones.
+const String baseSensorTopic = "homeassistant/sensor/mcu/";
+const String baseSwitchTopic = "homeassistant/switch/mcu/";
 // const String baseSensorTopic = "homeassistant/sensor/poolmcu/";
 // const String baseSwitchTopic = "homeassistant/switch/poolmcu/";
 
@@ -56,6 +58,11 @@ void MQTTManager::sendDataToTopic(String &topic, DynamicJsonDocument &data)
 {
     if (mqttClient.connected())
     {
+        size_t jsonSize = measureJson(data);
+
+        Serial.print("JSON size: ");
+        Serial.println(jsonSize);
+
         char buffer[256];
         size_t n = serializeJson(data, buffer);
 
@@ -78,7 +85,7 @@ void MQTTManager::sendTempDiscovery(String entity, float temperature)
     String stateTopic = baseSensorTopic + entity + "/state";
     String topic = baseSensorTopic + entity + "/config";
 
-    DynamicJsonDocument doc(512);
+    DynamicJsonDocument doc(256);
 
     char temp[10];
     dtostrf(temperature, 5, 2, temp);
@@ -97,7 +104,7 @@ void MQTTManager::sendTempDiscovery(String entity, float temperature)
 void MQTTManager::sendTemp(String entity, float temperature)
 {
     String topic = baseSensorTopic + entity + "/state";
-    DynamicJsonDocument doc(512);
+    DynamicJsonDocument doc(256);
 
     char temp[10];
     dtostrf(temperature, 5, 2, temp);

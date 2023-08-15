@@ -71,8 +71,6 @@ void setup(void)
 
 void loop(void)
 {
-    
-
     if (initalRun)
     {
         Serial.printf("\nInitial: motorDirectionSwitch: %d\n", motorDirectionSwitch);
@@ -118,9 +116,9 @@ void loop(void)
 void sendMQTT(float poolTemperature, float solarTemperature)
 {
     mqttManager.sendTempDiscovery(SENSORPOOL, poolTemperature);
-    //mqttManager.sendTemp(SENSORPOOL, poolTemperature);
+    mqttManager.sendTemp(SENSORPOOL, poolTemperature);
     mqttManager.sendTempDiscovery(SENSORSOLAR, solarTemperature);
-    //mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
+    mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
     mqttManager.sendMotorDiscovery(MOTORDIRECTION);
     mqttManager.sendMotorDirection(MOTORDIRECTION, motorDirectionSwitch);
 }
