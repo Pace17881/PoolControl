@@ -11,12 +11,10 @@ const char *mqttUser = "your_mqtt_user";
 const char *mqttPassword = "your_mqtt_password";
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-
-// The String must not longer than the below ones.
-const String baseSensorTopic = "homeassistant/sensor/mcu/";
-const String baseSwitchTopic = "homeassistant/switch/mcu/";
-// const String baseSensorTopic = "homeassistant/sensor/poolmcu/";
-// const String baseSwitchTopic = "homeassistant/switch/poolmcu/";
+//const String baseSensorTopic = "homeassistant/sensor/mcu/";
+///const String baseSwitchTopic = "homeassistant/switch/mcu/";
+const String baseSensorTopic = "homeassistant/sensor/poolmcu/";
+const String baseSwitchTopic = "homeassistant/switch/poolmcu/";
 
 bool automatic = false;
 
@@ -34,9 +32,11 @@ bool MQTTManager::connect()
 {
     if (!mqttClient.connected())
     {
+        Serial.println("Connecting to MQTT server...");
         mqttClient.setServer(mqttServer, mqttPort);
         if (mqttClient.connect("PoolController"))
         {
+            Serial.println("Connected to MQTT server");
             mqttClient.subscribe("poolAutomaticMode");
             return true;
         }
@@ -54,38 +54,14 @@ void MQTTManager::disconnect()
     mqttClient.disconnect();
 }
 
-void MQTTManager::sendDataToTopic(String &topic, DynamicJsonDocument &data)
-{
-    if (mqttClient.connected())
-    {
-        size_t jsonSize = measureJson(data);
-
-        Serial.print("JSON size: ");
-        Serial.println(jsonSize);
-
-        char buffer[256];
-        size_t n = serializeJson(data, buffer);
-
-        Serial.print("Sending discovery data for ");
-        Serial.println(topic); // Überprüfe, ob das generierte Thema korrekt ist
-        Serial.println(buffer);
-        bool state = mqttClient.publish(topic.c_str(), buffer, n);
-        Serial.println(state);
-    }
-    else
-    {
-        Serial.println("No connection");
-        Serial.println(topic);
-    }
-}
-
 void MQTTManager::sendTempDiscovery(String entity, float temperature)
 {
     // This is the discovery topic for this specific sensor
     String stateTopic = baseSensorTopic + entity + "/state";
-    String topic = baseSensorTopic + entity + "/config";
+    String configTopic = baseSensorTopic + entity + "/config";
 
-    DynamicJsonDocument doc(256);
+    DynamicJsonDocument doc(1024);
+    char buffer[256];
 
     char temp[10];
     dtostrf(temperature, 5, 2, temp);
@@ -98,22 +74,28 @@ void MQTTManager::sendTempDiscovery(String entity, float temperature)
     doc["temperature"] = temp;
     doc["val_tpl"] = "{{ value_json.temperature|default(0) }}";
 
-    sendDataToTopic(topic, doc);
+    size_t n = serializeJson(doc, buffer);
+
+    mqttClient.publish(configTopic.c_str(), buffer, n);
 }
 
 void MQTTManager::sendTemp(String entity, float temperature)
 {
-    String topic = baseSensorTopic + entity + "/state";
-    DynamicJsonDocument doc(256);
+    String stateTopic = baseSensorTopic + entity + "/state";
+    DynamicJsonDocument doc(1024);
+    char buffer[256];
 
     char temp[10];
     dtostrf(temperature, 5, 2, temp);
+
     doc["temperature"] = temp;
 
-    sendDataToTopic(topic, doc);
+    size_t n = serializeJson(doc, buffer);
+
+    mqttClient.publish(stateTopic.c_str(), buffer, n);
 }
 
-void callback(char *topic, byte *payload, unsigned int length)
+void MQTTManager::callback(char *topic, byte *payload, unsigned int length)
 {
     Serial.print("Nachricht empfangen [");
     Serial.print(topic);
@@ -127,24 +109,17 @@ void callback(char *topic, byte *payload, unsigned int length)
     }
 
     Serial.println(message);
-
-    if (message.equals("0"))
-    {
-        automatic = false;
-    }
-    else
-    {
-        automatic = true;
-    }
+    automatic = message.equals("1") ? true : false;
 }
 
 void MQTTManager::sendMotorDiscovery(String entity)
 {
-    String topic = baseSensorTopic + entity + "/config";
+    String configTopic = baseSensorTopic + entity + "/config";
     String stateTopic = baseSensorTopic + entity + "/state";
     String commandTopic = baseSensorTopic + entity + "/set";
 
     DynamicJsonDocument doc(1024);
+    char buffer[256];
 
     doc["name"] = entity;
     doc["stat_t"] = stateTopic;
@@ -153,56 +128,63 @@ void MQTTManager::sendMotorDiscovery(String entity)
     doc["state_closed"] = "Cleaning";
     doc["frc_upd"] = true;
 
-    sendDataToTopic(topic, doc);
+    size_t n = serializeJson(doc, buffer);
+
+    mqttClient.publish(configTopic.c_str(), buffer, n);
 }
 
 void MQTTManager::sendMotorDirection(String entity, bool motorDirectionSwitch)
 {
-    String topic = baseSensorTopic + entity + "/state";
+    String stateTopic = baseSensorTopic + entity + "/state";
     if (motorDirectionSwitch)
     {
-        mqttClient.publish(topic.c_str(), "Heating");
+        mqttClient.publish(stateTopic.c_str(), "Heating");
     }
     else
     {
-        mqttClient.publish(topic.c_str(), "Cleaning");
+        mqttClient.publish(stateTopic.c_str(), "Cleaning");
     }
 }
 
-void MQTTManager::switchOutlet(String entity, const char *state)
+void MQTTManager::switchOutlet(String topic, const char *state)
 {
-    String topic = "cmnd/" + entity + "/POWER";
-    Serial.println(topic);
-    mqttClient.publish(topic.c_str(), state);
+    String command = "cmnd/" + topic + "/POWER";
+    Serial.println(command);
+    mqttClient.publish(command.c_str(), state);
 }
 
 void MQTTManager::sendAutomaticStateDiscovery(String entity)
 {
-    String topic = baseSwitchTopic + entity + "/config";
+    String configTopic = baseSwitchTopic + entity + "/config";
     String stateTopic = baseSwitchTopic + entity + "/state";
     String commandTopic = baseSwitchTopic + entity + "/set";
     String availTopic = baseSwitchTopic + entity + "/availability";
 
     DynamicJsonDocument doc(1024);
+    char buffer[256];
 
     doc["name"] = entity;
     doc["stat_t"] = stateTopic;
     doc["cmd_t"] = commandTopic;
     doc["uniq_id"] = "switch_" + entity;
 
-    sendDataToTopic(topic, doc);
+    size_t n = serializeJson(doc, buffer);
+
+    mqttClient.publish(configTopic.c_str(), buffer, n);
 }
 
 void MQTTManager::sendAutomaticStateValue(String entity, bool mode)
 {
-    String topic = baseSwitchTopic + entity + "/set";
+    String stateTopic = baseSwitchTopic + entity + "/set";
     String payload = mode ? "ON" : "OFF";
-    mqttClient.publish(topic.c_str(), payload.c_str(), true);
+    mqttClient.publish(stateTopic.c_str(), payload.c_str(), true);
 }
 
 void MQTTManager::setup()
 {
-    mqttClient.setCallback(callback);
+    mqttClient.setCallback([this](char* topic, byte* payload, unsigned int length) {
+        this->callback(topic, payload, length);
+    });
 }
 
 void MQTTManager::loop()

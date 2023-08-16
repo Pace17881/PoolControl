@@ -36,14 +36,12 @@ const long interval = 10000;
 bool masterSwitchOn = false;
 bool motorDirectionSwitch = false;
 bool initalRun = true;
-bool automaticMode = false;
 
 WiFiManager wifiManager;
 MQTTManager mqttManager;
 
 void measureDiffTemp(float poolTemperature, float solarTemperature);
 void manageRelay();
-void startDeepSleep();
 void mainLogic();
 void sendMQTT(float poolTemperature, float solarTemperature);
 
@@ -102,13 +100,12 @@ void loop(void)
         manageRelay();
         sendMQTT(poolTemperature, solarTemperature);
     }
-    
+
     if (wifiManager.isConnected())
     {
         if (mqttManager.connect())
         {
             mqttManager.loop(); // Handle MQTT communication
-            automaticMode = mqttManager.getAutomaticState();
         }
     }
 }
@@ -150,7 +147,7 @@ void manageRelay()
 
         relayStartTime = millis(); // Record the start time
 
-        if (automaticMode)
+        if (mqttManager.getAutomaticState())
         {
             mqttManager.switchOutlet("Pool", "1");
         }
@@ -163,7 +160,7 @@ void manageRelay()
         digitalWrite(relayMasterPin, masterSwitchOn); // Turn off the relay
 
         relayStartTime = 0;
-        if (automaticMode)
+        if (mqttManager.getAutomaticState())
         {
             mqttManager.switchOutlet("Pool", "0");
         }

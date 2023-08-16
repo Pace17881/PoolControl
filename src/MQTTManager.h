@@ -21,6 +21,7 @@ public:
     void subscribe();
     bool getAutomaticState();
     bool connect();
+    void callback(char *topic, byte *payload, unsigned int length);
 };
 
 #endif // MQTT_MANAGER_H
