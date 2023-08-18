@@ -11,12 +11,11 @@ const char *mqttUser = "your_mqtt_user";
 const char *mqttPassword = "your_mqtt_password";
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-//const String baseSensorTopic = "homeassistant/sensor/mcu/";
-///const String baseSwitchTopic = "homeassistant/switch/mcu/";
-const String baseSensorTopic = "homeassistant/sensor/poolmcu/";
-const String baseSwitchTopic = "homeassistant/switch/poolmcu/";
+const String baseSensorTopic;
+const String baseSwitchTopic;
 
 bool automatic = false;
+bool mqttConnected = false;
 
 void MQTTManager::subscribe()
 {
@@ -32,21 +31,21 @@ bool MQTTManager::connect()
 {
     if (!mqttClient.connected())
     {
-        Serial.println("Connecting to MQTT server...");
+        //Serial.println("Connecting to MQTT server...");
         mqttClient.setServer(mqttServer, mqttPort);
         if (mqttClient.connect("PoolController"))
         {
-            Serial.println("Connected to MQTT server");
+            //Serial.println("Connected to MQTT server");
             mqttClient.subscribe("poolAutomaticMode");
-            return true;
+            mqttConnected = true;
         }
         else
         {
             Serial.println("Failed to connect to MQTT server");
-            return false;
+            mqttConnected = false;
         }
     }
-    return true;
+    return mqttConnected;
 }
 
 void MQTTManager::disconnect()
@@ -97,9 +96,9 @@ void MQTTManager::sendTemp(String entity, float temperature)
 
 void MQTTManager::callback(char *topic, byte *payload, unsigned int length)
 {
-    Serial.print("Nachricht empfangen [");
-    Serial.print(topic);
-    Serial.print("] ");
+    //Serial.print("Nachricht empfangen [");
+    //Serial.print(topic);
+    //Serial.print("] ");
 
     // Konvertiere die empfangene Nachricht in einen String
     String message = "";
@@ -108,7 +107,7 @@ void MQTTManager::callback(char *topic, byte *payload, unsigned int length)
         message += (char)payload[i];
     }
 
-    Serial.println(message);
+    //Serial.println(message);
     automatic = message.equals("1") ? true : false;
 }
 

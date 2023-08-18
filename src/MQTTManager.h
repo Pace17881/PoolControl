@@ -6,7 +6,9 @@ class MQTTManager
 {
 private:
     bool automatic;
+
 public:
+    MQTTManager(String sensorTopic, String switchTopic) : baseSensorTopic(sensorTopic), baseSwitchTopic(switchTopic) {};
     void sendDataToTopic(String &topic, DynamicJsonDocument &data);
     void sendTempDiscovery(String entity, float temperature);
     void sendTemp(String entity, float temperature);
@@ -17,11 +19,15 @@ public:
     void setup();
     void loop();
     void disconnect();
-    void switchOutlet(String entity, const char* state);
+    void switchOutlet(String entity, const char *state);
     void subscribe();
     bool getAutomaticState();
     bool connect();
     void callback(char *topic, byte *payload, unsigned int length);
+
+private:
+    const String baseSensorTopic;
+    const String baseSwitchTopic;
 };
 
 #endif // MQTT_MANAGER_H

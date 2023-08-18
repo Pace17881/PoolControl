@@ -5,12 +5,12 @@
 // WiFi credentials
 const char *ssid = "Internet";
 const char *password = "(/DDD)HD)988793hdHhd39hd987887";
-bool connected = false;
+bool wifiConnected = false;
 
 bool WiFiManager::isConnected()
 {
     int retries = 0;
-    while (retries <= 3 && !connected)
+    while (retries <= 3 && !wifiConnected)
     {
         Serial.println("WiFi not connected");
         Serial.printf("Retry %d from 3\n", retries++);
@@ -26,16 +26,16 @@ bool WiFiManager::isConnected()
                 Serial.println("");
                 Serial.println("WiFi connected");
                 Serial.println("IP address: " + WiFi.localIP().toString());
-                connected = true;
+                wifiConnected = true;
             }
         }
         else
         {
-            connected = true; // Aktualisiere den Wi-Fi-Status
+            wifiConnected = true; // Aktualisiere den Wi-Fi-Status
         }
     }
 
-    return connected;
+    return wifiConnected;
 }
 
 void WiFiManager::disconnect()
