@@ -19,6 +19,7 @@ bool WiFiManager::isConnected()
         if (!WiFi.isConnected())
         {
             Serial.println("Attempting Wifi  connection...");
+            WiFi.mode(WIFI_STA);
             WiFi.begin(ssid, password);
             delay(5000);
             if (WiFi.isConnected())
