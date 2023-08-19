@@ -46,29 +46,32 @@ Ticker mainTimer(mainLoopCallback, 10000);
 Ticker masterSwitchTimer(masterSwitchCallback, 25000, 1);
 Ticker delayedPumpControlTimer(delayedPumpControlCallback, 5000, 1);
 
-//const String baseSensorTopic = "homeassistant/sensor/debug/";
-//const String baseSwitchTopic = "homeassistant/switch/debug/";
-const String baseSensorTopic = "homeassistant/sensor/poolmcu/";
-const String baseSwitchTopic = "homeassistant/switch/poolmcu/";
+// Topics
+// const String baseSensorTopic = "homeassistant/sensor/debug/";
+// const String baseSwitchTopic = "homeassistant/switch/debug/";
+const String sensorTopic = "homeassistant/sensor/poolmcu/";
+const String switchTopic = "homeassistant/switch/poolmcu/";
+const String modeTopic = "poolcontroller/mode";
 
 WiFiManager wifiManager;
-MQTTManager mqttManager(baseSensorTopic, baseSwitchTopic);
+MQTTManager mqttManager(sensorTopic, switchTopic, modeTopic);
 
 void delayedPumpControlCallback()
 {
-    if (mqttManager.getAutomaticState())
-    {
-        mqttManager.switchOutlet("Pool", "0");
-        Serial.println("Pump off");
-    }
+    mqttManager.switchOutlet("Pool", "0");
+    Serial.println("Pump off");
 }
 
 void masterSwitchCallback()
 {
     masterSwitchOn = false;
     digitalWrite(relayMasterPin, masterSwitchOn); // Turn off the relay
-    Serial.println("Pump off delay started");
-    delayedPumpControlTimer.start();
+
+    if (mqttManager.getAutomaticState())
+    {
+        Serial.println("Pump off delay started");
+        delayedPumpControlTimer.start();
+    }
 }
 
 void mainLoopCallback()
@@ -83,13 +86,13 @@ void mainLoopCallback()
 
     // Print the temperature readings
     Serial.printf("\nTemperatures pool: %.2f °C solar: %.2f °C\n\n", poolTemperature, solarTemperature);
+    sendMQTT(poolTemperature, solarTemperature);
 
     if (!masterSwitchOn)
     {
         compareTemperatures(poolTemperature, solarTemperature);
     }
     switchRelay();
-    sendMQTT(poolTemperature, solarTemperature);
 
     Serial.printf("mainTimerState: %d\n", mainTimer.state());
     Serial.printf("masterSwitchTimerState: %d\n", masterSwitchTimer.state());
