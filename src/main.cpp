@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <SimpleTimer.h>
@@ -10,6 +11,7 @@
 #define ONE_WIRE_BUS 13  // Temp sensors
 #define relayMasterPin 4 // Master relay
 #define relayMotorPin 5  // Direction Relay
+#define switchPin 14
 
 // Definitions
 #define SENSORPOOL "pool"
@@ -28,15 +30,14 @@ const float tempTreshold = 2.0;
 const float minTemp = 24.0;
 const float maxTemp = 40.0;
 
-void mainLoopCallback();
-void masterSwitchCallback();
-void delayedPumpControlCallback();
-
 bool masterSwitchOn = false;
 bool motorDirectionSwitch = false;
 bool initalRun = true;
 
 // Deklaration der Funktionen
+void mainLoopCallback();
+void masterSwitchCallback();
+void delayedPumpControlCallback();
 void compareTemperatures(float poolTemperature, float solarTemperature);
 void switchRelay();
 void sendMQTT(float poolTemperature, float solarTemperature);
@@ -44,17 +45,27 @@ void sendMQTT(float poolTemperature, float solarTemperature);
 // Timer
 Ticker mainTimer(mainLoopCallback, 10000);
 Ticker masterSwitchTimer(masterSwitchCallback, 25000, 1);
-Ticker delayedPumpControlTimer(delayedPumpControlCallback, 25000, 1);
+Ticker delayedPumpControlTimer(delayedPumpControlCallback, 35000, 1);
 
 // Topics
-// const String baseSensorTopic = "homeassistant/sensor/debug/";
-// const String baseSwitchTopic = "homeassistant/switch/debug/";
+//const String sensorTopic = "homeassistant/sensor/debug/";
+//const String switchTopic = "homeassistant/switch/debug/";
 const String sensorTopic = "homeassistant/sensor/poolmcu/";
 const String switchTopic = "homeassistant/switch/poolmcu/";
-const String modeTopic = "poolcontroller/mode";
+const String modeTopic = switchTopic + "mode";
 
 WiFiManager wifiManager;
 MQTTManager mqttManager(sensorTopic, switchTopic, modeTopic);
+
+void log()
+{
+    Serial.printf("masterSwitch: %d\n", masterSwitchOn);
+    Serial.printf("isAutomatic: %d\n", mqttManager.isAutomatic());
+    Serial.printf("isSolar: %d\n", mqttManager.isSolar());
+    Serial.printf("mainTimerState: %d\n", mainTimer.state());
+    Serial.printf("masterSwitchTimerState: %d\n", masterSwitchTimer.state());
+    Serial.printf("delayedPumpControlTimerState: %d\n", delayedPumpControlTimer.state());
+}
 
 void delayedPumpControlCallback()
 {
@@ -67,7 +78,7 @@ void masterSwitchCallback()
     masterSwitchOn = false;
     digitalWrite(relayMasterPin, masterSwitchOn); // Turn off the relay
 
-    if (mqttManager.getAutomaticState())
+    if (mqttManager.isAutomatic())
     {
         Serial.println("Pump off delay started");
         delayedPumpControlTimer.start();
@@ -88,15 +99,27 @@ void mainLoopCallback()
     Serial.printf("\nTemperatures pool: %.2f °C solar: %.2f °C\n\n", poolTemperature, solarTemperature);
     sendMQTT(poolTemperature, solarTemperature);
 
-    if (!masterSwitchOn)
+    if (mqttManager.isAutomatic())
     {
-        compareTemperatures(poolTemperature, solarTemperature);
+        Serial.println("Automatic Mode:");
+        if (!masterSwitchOn)
+        {
+            compareTemperatures(poolTemperature, solarTemperature);
+        }
     }
+    else
+    {
+        Serial.println("Manual Mode:");
+        if (motorDirectionSwitch != mqttManager.isSolar())
+        {
+            motorDirectionSwitch = mqttManager.isSolar();
+            masterSwitchOn = true;
+        }
+    }
+
     switchRelay();
 
-    Serial.printf("mainTimerState: %d\n", mainTimer.state());
-    Serial.printf("masterSwitchTimerState: %d\n", masterSwitchTimer.state());
-    Serial.printf("delayedPumpControlTimerState: %d\n", delayedPumpControlTimer.state());
+    log();
 }
 
 void sendMQTT(float poolTemperature, float solarTemperature)
@@ -133,7 +156,7 @@ void switchRelay()
         digitalWrite(relayMotorPin, motorDirectionSwitch);
         digitalWrite(relayMasterPin, masterSwitchOn); // Turn on the relay
 
-        if (mqttManager.getAutomaticState())
+        if (mqttManager.isAutomatic())
         {
             mqttManager.switchOutlet("Pool", "1");
         }
@@ -146,9 +169,10 @@ void setup(void)
 {
     Serial.begin(9600);
 
-    sensors.begin(); // Start up the library
+    sensors.begin();
     pinMode(relayMasterPin, OUTPUT);
     pinMode(relayMotorPin, OUTPUT);
+    //pinMode(switchPin, INPUT);
 
     while (!sensors.getAddress(poolSensorAddress, 0) || !sensors.getAddress(solarSensorAddress, 1))
     {
@@ -161,10 +185,17 @@ void setup(void)
     sensors.setResolution(solarSensorAddress, 12);
 
     mqttManager.setup();
+
+    ArduinoOTA.setHostname("PoolController-OTA");
+    ArduinoOTA.begin();
 }
 
 void loop(void)
 {
+    ArduinoOTA.handle();
+
+    //int switched = digitalRead(switchPin);
+    //Serial.printf("Switch pressed: %d\n", switched);
     if (initalRun)
     {
         Serial.printf("\nInitial: motorDirectionSwitch: %d\n", motorDirectionSwitch);

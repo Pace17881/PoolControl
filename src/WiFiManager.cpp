@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include "WiFiManager.h"
+#include "config.h"
 
 // WiFi credentials
-const char *ssid = "Internet";
-const char *password = "(/DDD)HD)988793hdHhd39hd987887";
+const char *ssid = WIFI_SSID;
+const char *password = WIFI_PASSWORD;
 bool wifiConnected = false;
 
 bool WiFiManager::isConnected()

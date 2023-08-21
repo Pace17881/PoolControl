@@ -22,8 +22,8 @@ public:
     void disconnect();
     void switchOutlet(String entity, const char *state);
     void subscribe();
-    bool getAutomaticState();
-    bool getDirectionState();
+    bool isAutomatic();
+    bool isSolar();
     bool connect();
     void callback(char *topic, byte *payload, unsigned int length);
 

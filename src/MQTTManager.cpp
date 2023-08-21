@@ -17,24 +17,22 @@ const String mModeTopic;
 
 bool automatic = false;
 bool direction = false;
-bool mqttConnected = false;
 
-std::vector<String> mTopics;
+bool mqttConnected = false;
 
 void MQTTManager::subscribe()
 {
-
     mqttClient.subscribe(mModeTopic.c_str());
 }
 
-bool MQTTManager::getAutomaticState()
-{
-    return direction;
-}
-
-bool MQTTManager::getDirectionState()
+bool MQTTManager::isAutomatic()
 {
     return automatic;
+}
+
+bool MQTTManager::isSolar()
+{
+    return direction;
 }
 
 bool MQTTManager::connect()
@@ -46,7 +44,7 @@ bool MQTTManager::connect()
         if (mqttClient.connect("PoolController"))
         {
             // Serial.println("Connected to MQTT server");
-            mqttClient.subscribe("poolAutomaticMode");
+            subscribe();
             mqttConnected = true;
         }
         else
@@ -106,31 +104,30 @@ void MQTTManager::sendTemp(String entity, float temperature)
 
 void MQTTManager::callback(char *topic, byte *payload, unsigned int length)
 {
+    Serial.println(topic);
     String message = "";
 
     for (unsigned int i = 0; i < length; i++)
     {
         message += (char)payload[i];
     }
+    Serial.println(message);
 
     switch (message.toInt())
     {
-    case 0:
-        automatic = false;
-        break;
-    case 1:
-        automatic = true;
-        break;
-    case 2:
+    case 0: // Manual cleaning
         direction = false;
         automatic = false;
         break;
-    case 3:
+    case 1: // Manual heating
         direction = true;
         automatic = false;
         break;
+    case 2: // Automatic
+        automatic = true;
+        break;
     default:
-        // Handle other cases, if needed
+        Serial.printf("%s is not a valid mode, Try 0,1,2", message.c_str());
         break;
     }
 }
