@@ -46,7 +46,7 @@ void sendMQTT(float poolTemperature, float solarTemperature);
 Ticker mainTimer(mainLoopCallback, 10000);
 Ticker masterSwitchTimer(masterSwitchCallback, 25000, 1);
 Ticker delayedPumpControlTimer(delayedPumpControlCallback, 35000, 1);
-Ticker flowTimer(flowTimerCallback, 15000);
+Ticker flowTimer(flowTimerCallback, 15000, 1);
 
 // Topics
 //const String sensorTopic = "homeassistant/sensor/debug/";
