@@ -31,10 +31,11 @@ const float minTemp = 24.0;
 const float maxTemp = 40.0;
 
 bool masterSwitchOn = false;
-bool motorDirectionSwitch = false;
+bool isHeating = false;
 bool initalRun = true;
 
 // Deklaration der Funktionen
+void flowTimerCallback();
 void mainLoopCallback();
 void masterSwitchCallback();
 void delayedPumpControlCallback();
@@ -117,9 +118,9 @@ void mainLoopCallback()
     else
     {
         Serial.println("Manual Mode:");
-        if (motorDirectionSwitch != mqttManager.isSolar())
+        if (isHeating != mqttManager.isSolar())
         {
-            motorDirectionSwitch = mqttManager.isSolar();
+            isHeating = mqttManager.isSolar();
             masterSwitchOn = true;
         }
     }
@@ -136,22 +137,22 @@ void sendMQTT(float poolTemperature, float solarTemperature)
     mqttManager.sendTempDiscovery(SENSORSOLAR, solarTemperature);
     mqttManager.sendTemp(SENSORSOLAR, solarTemperature);
     mqttManager.sendMotorDiscovery(MOTORDIRECTION);
-    mqttManager.sendMotorDirection(MOTORDIRECTION, motorDirectionSwitch);
+    mqttManager.sendMotorDirection(MOTORDIRECTION, isHeating);
 }
 
 void compareTemperatures(float poolTemperature, float solarTemperature)
 {
     if (solarTemperature >= minTemp && poolTemperature <= maxTemp)
     {
-        if (!motorDirectionSwitch && solarTemperature - poolTemperature > tempTreshold)
+        if (!isHeating && solarTemperature - poolTemperature > tempTreshold)
         {
-            motorDirectionSwitch = true;
+            isHeating = true;
             masterSwitchOn = true;
             flowTimer.start();
         }
-        else if (motorDirectionSwitch && solarTemperature - poolTemperature < tempTreshold)
+        else if (isHeating && solarTemperature - poolTemperature < tempTreshold)
         {
-            motorDirectionSwitch = false;
+            isHeating = false;
             masterSwitchOn = true;
         }
     }
@@ -161,7 +162,7 @@ void switchRelay()
 {
     if (masterSwitchOn && masterSwitchTimer.state() == STOPPED)
     {
-        digitalWrite(relayMotorPin, motorDirectionSwitch);
+        digitalWrite(relayMotorPin, isHeating);
         digitalWrite(relayMasterPin, masterSwitchOn); // Turn on the relay
 
         if (mqttManager.isAutomatic())
@@ -206,8 +207,8 @@ void loop(void)
     //Serial.printf("Switch pressed: %d\n", switched);
     if (initalRun)
     {
-        Serial.printf("\nInitial: motorDirectionSwitch: %d\n", motorDirectionSwitch);
-        motorDirectionSwitch = false;
+        Serial.printf("\nInitial: isHeating: %d\n", isHeating);
+        isHeating = false;
         masterSwitchOn = true;
         initalRun = false;
         switchRelay();

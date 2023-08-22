@@ -153,10 +153,10 @@ void MQTTManager::sendMotorDiscovery(String entity)
     mqttClient.publish(configTopic.c_str(), buffer, n);
 }
 
-void MQTTManager::sendMotorDirection(String entity, bool motorDirectionSwitch)
+void MQTTManager::sendMotorDirection(String entity, bool isHeating)
 {
     String stateTopic = mSensorTopic + entity + "/state";
-    if (motorDirectionSwitch)
+    if (isHeating)
     {
         mqttClient.publish(stateTopic.c_str(), "Heating");
     }

@@ -14,7 +14,7 @@ public:
     void sendTempDiscovery(String entity, float temperature);
     void sendTemp(String entity, float temperature);
     void sendMotorDiscovery(String entity);
-    void sendMotorDirection(String entity, bool motorDirectionSwitch);
+    void sendMotorDirection(String entity, bool isHeating);
     void sendAutomaticStateDiscovery(String entity);
     void sendAutomaticStateValue(String entity, bool mode);
     void setup();
