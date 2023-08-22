@@ -46,6 +46,7 @@ void sendMQTT(float poolTemperature, float solarTemperature);
 Ticker mainTimer(mainLoopCallback, 10000);
 Ticker masterSwitchTimer(masterSwitchCallback, 25000, 1);
 Ticker delayedPumpControlTimer(delayedPumpControlCallback, 35000, 1);
+Ticker flowTimer(flowTimerCallback, 15000);
 
 // Topics
 //const String sensorTopic = "homeassistant/sensor/debug/";
@@ -65,6 +66,12 @@ void log()
     Serial.printf("mainTimerState: %d\n", mainTimer.state());
     Serial.printf("masterSwitchTimerState: %d\n", masterSwitchTimer.state());
     Serial.printf("delayedPumpControlTimerState: %d\n", delayedPumpControlTimer.state());
+}
+
+void flowTimerCallback()
+{
+    // Nothing to do here
+    // Wait until warm water is flown tp pool
 }
 
 void delayedPumpControlCallback()
@@ -102,7 +109,7 @@ void mainLoopCallback()
     if (mqttManager.isAutomatic())
     {
         Serial.println("Automatic Mode:");
-        if (!masterSwitchOn)
+        if (!masterSwitchOn && flowTimer.state() == STOPPED)
         {
             compareTemperatures(poolTemperature, solarTemperature);
         }
@@ -140,6 +147,7 @@ void compareTemperatures(float poolTemperature, float solarTemperature)
         {
             motorDirectionSwitch = true;
             masterSwitchOn = true;
+            flowTimer.start();
         }
         else if (motorDirectionSwitch && solarTemperature - poolTemperature < tempTreshold)
         {
@@ -209,6 +217,7 @@ void loop(void)
     mainTimer.update();
     masterSwitchTimer.update();
     delayedPumpControlTimer.update();
+    flowTimer.update();
 
     if (wifiManager.isConnected())
     {
