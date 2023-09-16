@@ -30,7 +30,7 @@ const float tempTreshold = 2.0;
 const float minTemp = 24.0;
 const float maxTemp = 40.0;
 
-bool masterSwitchOn = false;
+bool valveMasterSwitchOn = false;
 bool isHeating = false;
 bool initalRun = true;
 bool pumpState = false;
@@ -62,7 +62,7 @@ MQTTManager mqttManager(sensorTopic, switchTopic, modeTopic);
 
 void log()
 {
-    Serial.printf("masterSwitch: %d\n", masterSwitchOn);
+    Serial.printf("masterSwitch: %d\n", valveMasterSwitchOn);
     Serial.printf("isAutomatic: %d\n", mqttManager.isAutomatic());
     Serial.printf("isSolar: %d\n", mqttManager.isSolar());
     Serial.printf("mainTimerState: %d\n", mainTimer.state());
@@ -79,8 +79,8 @@ void delayedPumpControlCallback()
 
 void masterSwitchCallback()
 {
-    masterSwitchOn = false;
-    digitalWrite(relayMasterPin, masterSwitchOn); // Turn off the relay
+    valveMasterSwitchOn = false;
+    digitalWrite(relayMasterPin, valveMasterSwitchOn); // Turn off the relay
 
     if (mqttManager.isAutomatic())
     {
@@ -104,7 +104,7 @@ void mainLoopCallback()
     if (mqttManager.isAutomatic())
     {
         Serial.println("Automatic Mode:");
-        if (!masterSwitchOn)
+        if (!valveMasterSwitchOn)
         {
             compareTemperatures(poolTemperature, solarTemperature);
         }
@@ -115,7 +115,7 @@ void mainLoopCallback()
         if (isHeating != mqttManager.isSolar())
         {
             isHeating = mqttManager.isSolar();
-            masterSwitchOn = true;
+            valveMasterSwitchOn = true;
             pumpState = true;
         }
     }
@@ -143,13 +143,13 @@ void compareTemperatures(float poolTemperature, float solarTemperature)
         if (!isHeating && solarTemperature - poolTemperature > tempTreshold)
         {
             isHeating = true;
-            masterSwitchOn = true;
+            valveMasterSwitchOn = true;
             pumpState = true;
         }
         else if (isHeating && solarTemperature - poolTemperature < tempTreshold)
         {
             isHeating = false;
-            masterSwitchOn = true;
+            valveMasterSwitchOn = true;
             pumpState = true;
         }
         else
@@ -175,10 +175,10 @@ void switchPump()
 
 void switchRelay()
 {
-    if (masterSwitchOn && masterSwitchTimer.state() == STOPPED)
+    if (valveMasterSwitchOn && masterSwitchTimer.state() == STOPPED)
     {
         digitalWrite(relayMotorPin, isHeating);
-        digitalWrite(relayMasterPin, masterSwitchOn); // Turn on the relay
+        digitalWrite(relayMasterPin, valveMasterSwitchOn); // Turn on the relay
 
         masterSwitchTimer.start();
     }
@@ -217,10 +217,10 @@ void loop(void)
     // Serial.printf("Switch pressed: %d\n", switched);
     if (initalRun)
     {
-        Serial.printf("\nInitial: isHeating: %d\n", isHeating);
-        isHeating = false;
-        masterSwitchOn = true;
         initalRun = false;
+        isHeating = false;
+        Serial.printf("\nInitial: isHeating: %d\n", isHeating);
+        valveMasterSwitchOn = true;
         switchRelay();
         mainTimer.start();
     }
