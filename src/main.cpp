@@ -33,8 +33,10 @@ const float maxTemp = 40.0;
 bool masterSwitchOn = false;
 bool isHeating = false;
 bool initalRun = true;
+bool pumpState = false;
 
 // Deklaration der Funktionen
+void switchPump();
 void flowTimerCallback();
 void mainLoopCallback();
 void masterSwitchCallback();
@@ -46,12 +48,11 @@ void sendMQTT(float poolTemperature, float solarTemperature);
 // Timer
 Ticker mainTimer(mainLoopCallback, 10000);
 Ticker masterSwitchTimer(masterSwitchCallback, 25000, 1);
-Ticker delayedPumpControlTimer(delayedPumpControlCallback, 35000, 1);
-Ticker flowTimer(flowTimerCallback, 15000, 1);
+Ticker delayedPumpControlTimer(delayedPumpControlCallback, 10000, 1);
 
 // Topics
-//const String sensorTopic = "homeassistant/sensor/debug/";
-//const String switchTopic = "homeassistant/switch/debug/";
+// const String sensorTopic = "homeassistant/sensor/debug/";
+// const String switchTopic = "homeassistant/switch/debug/";
 const String sensorTopic = "homeassistant/sensor/poolmcu/";
 const String switchTopic = "homeassistant/switch/poolmcu/";
 const String modeTopic = switchTopic + "mode";
@@ -69,16 +70,11 @@ void log()
     Serial.printf("delayedPumpControlTimerState: %d\n", delayedPumpControlTimer.state());
 }
 
-void flowTimerCallback()
-{
-    // Nothing to do here
-    // Wait until warm water is flown tp pool
-}
-
 void delayedPumpControlCallback()
 {
     mqttManager.switchOutlet("Pool", "0");
     Serial.println("Pump off");
+    pumpState = false;
 }
 
 void masterSwitchCallback()
@@ -88,8 +84,6 @@ void masterSwitchCallback()
 
     if (mqttManager.isAutomatic())
     {
-        Serial.println("Pump off delay started");
-        delayedPumpControlTimer.start();
     }
 }
 
@@ -110,7 +104,7 @@ void mainLoopCallback()
     if (mqttManager.isAutomatic())
     {
         Serial.println("Automatic Mode:");
-        if (!masterSwitchOn && flowTimer.state() == STOPPED)
+        if (!masterSwitchOn)
         {
             compareTemperatures(poolTemperature, solarTemperature);
         }
@@ -122,9 +116,11 @@ void mainLoopCallback()
         {
             isHeating = mqttManager.isSolar();
             masterSwitchOn = true;
+            pumpState = true;
         }
     }
 
+    switchPump();
     switchRelay();
 
     log();
@@ -148,13 +144,32 @@ void compareTemperatures(float poolTemperature, float solarTemperature)
         {
             isHeating = true;
             masterSwitchOn = true;
-            flowTimer.start();
+            pumpState = true;
         }
         else if (isHeating && solarTemperature - poolTemperature < tempTreshold)
         {
             isHeating = false;
             masterSwitchOn = true;
+            pumpState = true;
         }
+        else
+        {
+            pumpState = false;
+        }
+    }
+}
+
+void switchPump()
+{
+    if (pumpState)
+    {
+        Serial.println("Pump on");
+        mqttManager.switchOutlet("Pool", "1");
+    }
+    else
+    {
+        Serial.println("Pump off delay has started");
+        delayedPumpControlTimer.start();
     }
 }
 
@@ -164,11 +179,6 @@ void switchRelay()
     {
         digitalWrite(relayMotorPin, isHeating);
         digitalWrite(relayMasterPin, masterSwitchOn); // Turn on the relay
-
-        if (mqttManager.isAutomatic())
-        {
-            mqttManager.switchOutlet("Pool", "1");
-        }
 
         masterSwitchTimer.start();
     }
@@ -181,7 +191,7 @@ void setup(void)
     sensors.begin();
     pinMode(relayMasterPin, OUTPUT);
     pinMode(relayMotorPin, OUTPUT);
-    //pinMode(switchPin, INPUT);
+    // pinMode(switchPin, INPUT);
 
     while (!sensors.getAddress(poolSensorAddress, 0) || !sensors.getAddress(solarSensorAddress, 1))
     {
@@ -203,8 +213,8 @@ void loop(void)
 {
     ArduinoOTA.handle();
 
-    //int switched = digitalRead(switchPin);
-    //Serial.printf("Switch pressed: %d\n", switched);
+    // int switched = digitalRead(switchPin);
+    // Serial.printf("Switch pressed: %d\n", switched);
     if (initalRun)
     {
         Serial.printf("\nInitial: isHeating: %d\n", isHeating);
@@ -218,7 +228,6 @@ void loop(void)
     mainTimer.update();
     masterSwitchTimer.update();
     delayedPumpControlTimer.update();
-    flowTimer.update();
 
     if (wifiManager.isConnected())
     {
